@@ -26,6 +26,7 @@ the LED: green, yellow, red. All LEDs are off when there is no valid reading.
 git clone https://github.com/Frieder03/parking-distance-indicator.git   # only once
 cd parking-distance-indicator
 git pull                  # get the latest version
+python3 check_all_leds.py # optional: all LEDs stay on until Ctrl+C
 python3 check_leds.py     # step 1: each LED lights up for one second
 python3 check_sensor.py   # step 2: distances are printed
 python3 main.py           # step 3: everything together
@@ -49,6 +50,7 @@ python3 main.py --simulate
 | `sensor.py`       | Distance measurement                           |
 | `leds.py`         | Warning levels and LEDs                        |
 | `main.py`         | Main program                                   |
+| `check_all_leds.py` | All LEDs on until Ctrl+C                     |
 | `check_leds.py`   | LED wiring check                               |
 | `check_sensor.py` | Sensor check                                   |
 | `fake_gpio.py`    | Simulated GPIO                                 |
