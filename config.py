@@ -6,6 +6,15 @@ PIN_LED_YELLOW = 27
 PIN_LED_RED = 22
 PIN_TRIG = 23
 PIN_ECHO = 24
+PIN_BUZZER = 18
+
+# Buzzer
+BUZZER_TYPE = "active"      # "active": beeps on its own; "passive": needs a tone (PWM)
+BUZZER_ACTIVE_LOW = False   # True for buzzer modules that beep when the pin is LOW
+BUZZER_FREQUENCY_HZ = 2000  # tone of a passive buzzer
+BEEP_LENGTH_S = 0.08        # length of one beep
+BEEP_SLOWEST_S = 0.8        # time between beeps at YELLOW_BELOW_CM
+BEEP_FASTEST_S = 0.15       # time between beeps just above RED_BELOW_CM
 
 # Warning thresholds in cm
 RED_BELOW_CM = 10      # closer than this: red

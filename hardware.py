@@ -27,6 +27,8 @@ def setup():
         GPIO.setup(pin, GPIO.OUT, initial=GPIO.LOW)
     GPIO.setup(config.PIN_TRIG, GPIO.OUT, initial=GPIO.LOW)
     GPIO.setup(config.PIN_ECHO, GPIO.IN)
+    buzzer_off = GPIO.HIGH if config.BUZZER_ACTIVE_LOW else GPIO.LOW
+    GPIO.setup(config.PIN_BUZZER, GPIO.OUT, initial=buzzer_off)
     if SIMULATE:
         print("SIMULATION: no real hardware is used.")
 

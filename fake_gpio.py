@@ -58,3 +58,21 @@ def input(pin):   # same name as in RPi.GPIO
 
 def cleanup():
     pin_states.clear()
+
+
+class PWM:
+    """Simulated PWM output for a passive buzzer."""
+
+    def __init__(self, pin, frequency_hz):
+        self.pin = pin
+        self.frequency_hz = frequency_hz
+        self.duty_cycle = 0
+
+    def start(self, duty_cycle):
+        self.duty_cycle = duty_cycle
+
+    def ChangeDutyCycle(self, duty_cycle):   # same name as in RPi.GPIO
+        self.duty_cycle = duty_cycle
+
+    def stop(self):
+        self.duty_cycle = 0
