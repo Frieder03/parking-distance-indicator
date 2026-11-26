@@ -1,4 +1,5 @@
-"""All settings in one place: pins, thresholds and timing."""
+"""All settings in one place: pins, thresholds, timing and communication."""
+import os
 
 # GPIO pins (BCM numbering)
 PIN_LED_GREEN = 17
@@ -27,3 +28,15 @@ MAX_DISTANCE_CM = 400
 ECHO_TIMEOUT_S = 0.05         # give up if the echo takes longer than this
 PAUSE_BETWEEN_PINGS_S = 0.06  # lets old echoes fade away
 READINGS_PER_MEASUREMENT = 3  # the median of these is used
+
+# Communication (MQTT). Override with e.g.  MQTT_BROKER=192.168.1.20 python3 main.py
+MQTT_BROKER = os.environ.get("MQTT_BROKER", "test.mosquitto.org")
+MQTT_PORT = int(os.environ.get("MQTT_PORT", "1883"))
+BASE_TOPIC = os.environ.get("MQTT_BASE_TOPIC", "etsidi/iot/friederbunne/parking")
+TOPIC_STATUS = f"{BASE_TOPIC}/status"      # Pi -> dashboard: every measurement (JSON)
+TOPIC_SETTINGS = f"{BASE_TOPIC}/settings"  # dashboard -> Pi: thresholds, buzzer (JSON, retained)
+TOPIC_ONLINE = f"{BASE_TOPIC}/online"      # "1" while the Pi runs, "0" (last will) when it stops
+
+# Web dashboard
+DASHBOARD_PORT = int(os.environ.get("DASHBOARD_PORT", "5001"))  # 5000 is AirPlay on macOS
+DEVICE_TIMEOUT_S = 3           # dashboard shows "offline" after this long without data

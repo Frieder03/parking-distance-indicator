@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Parking Indicator</title>
+  <style>
+    :root {
+      --bg: #f3f4f6; --card: #ffffff; --text: #1f2937; --muted: #6b7280; --line: #e5e7eb;
+      --green: #1f9d55; --yellow: #e0a800; --red: #e03131; --off: #9ca3af;
+      --asphalt: #3a3f47; --wall: #b8bcc4;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #111418; --card: #1b1f25; --text: #e5e7eb; --muted: #9ca3af; --line: #2c323a; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text);
+           font: 16px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    header { padding: 20px 16px 4px; max-width: 980px; margin: 0 auto; }
+    h1 { margin: 0; font-size: 1.4rem; }
+    header p { margin: 4px 0 0; color: var(--muted); font-size: .9rem; }
+    main { max-width: 980px; margin: 0 auto; padding: 16px; display: grid; gap: 16px;
+           grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    @media (max-width: 720px) { main { grid-template-columns: minmax(0, 1fr); } }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+    .scene { padding: 0; overflow: hidden; position: relative; }
+    svg { display: block; width: 100%; height: auto; }
+    #car { transition: transform .25s linear, opacity .3s; }
+    .overlay { position: absolute; inset: 0; display: none; place-items: center; text-align: center;
+               background: rgba(17, 20, 24, .55); color: #fff; font-weight: 600; padding: 16px; }
+    .overlay.show { display: grid; }
+    .distance { font-size: 3.2rem; font-weight: 700; font-variant-numeric: tabular-nums; margin: 0; }
+    .distance small { font-size: 1.2rem; color: var(--muted); font-weight: 500; }
+    .pill { display: inline-block; padding: 4px 12px; border-radius: 999px; color: #fff;
+            font-weight: 600; background: var(--off); text-transform: uppercase; font-size: .85rem; }
+    .status { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px; font-size: .9rem; color: var(--muted); }
+    .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--off); margin-right: 6px; }
+    .dot.on { background: var(--green); }
+    h2 { font-size: 1rem; margin: 0 0 12px; }
+    form { display: grid; gap: 12px; }
+    label { display: grid; gap: 4px; font-size: .9rem; color: var(--muted); }
+    input[type=number] { font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line);
+                         background: var(--bg); color: var(--text); width: 100%; }
+    .check { display: flex; align-items: center; gap: 8px; color: var(--text); }
+    button { font: inherit; font-weight: 600; padding: 10px; border: 0; border-radius: 8px;
+             background: #2563eb; color: #fff; cursor: pointer; }
+    #msg { min-height: 1.4em; margin: 0; font-size: .9rem; }
+    #msg.error { color: var(--red); }
+    .side { display: grid; gap: 16px; align-content: start; }
+    code { font-size: .8rem; word-break: break-all; }
+    .info { font-size: .85rem; color: var(--muted); }
+    .info p { margin: 4px 0; }
+    .waves path { fill: none; stroke: #fff; stroke-width: 2; opacity: 0; }
+    .beeping .waves path { animation: wave var(--wave, 1s) linear infinite; }
+    .waves path:nth-child(2) { animation-delay: calc(var(--wave, 1s) / 3); }
+    .waves path:nth-child(3) { animation-delay: calc(var(--wave, 1s) / 3 * 2); }
+    @keyframes wave { 0% { opacity: .9; transform: translateY(0); } 100% { opacity: 0; transform: translateY(26px); } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Parking Distance Indicator</h1>
+    <p>Live view of the Raspberry Pi sensor, received over MQTT</p>
+  </header>
+
+  <main>
+    <section class="card scene" id="scene">
+      <svg viewBox="0 0 320 520" role="img" aria-label="Car reversing towards the wall">
+        <rect width="320" height="520" fill="var(--asphalt)"/>
+        <!-- warning zones, sized from the thresholds -->
+        <rect id="zone-yellow" x="40" y="28" width="240" height="0" fill="var(--yellow)" opacity=".22"/>
+        <rect id="zone-red" x="40" y="28" width="240" height="0" fill="var(--red)" opacity=".3"/>
+        <line id="mark-red" x1="40" x2="280" stroke="var(--red)" stroke-dasharray="6 5" stroke-width="1.5"/>
+        <line id="mark-yellow" x1="40" x2="280" stroke="var(--yellow)" stroke-dasharray="6 5" stroke-width="1.5"/>
+        <text id="label-red" x="276" fill="#fff" font-size="11" text-anchor="end"></text>
+        <text id="label-yellow" x="276" fill="#fff" font-size="11" text-anchor="end"></text>
+        <!-- parking bay lines -->
+        <line x1="40" y1="28" x2="40" y2="520" stroke="#f5f5f5" stroke-width="4"/>
+        <line x1="280" y1="28" x2="280" y2="520" stroke="#f5f5f5" stroke-width="4"/>
+        <!-- wall with the ultrasonic sensor -->
+        <rect width="320" height="28" fill="var(--wall)"/>
+        <g transform="translate(160 28)">
+          <rect x="-22" y="-10" width="44" height="14" rx="3" fill="#1e3a8a"/>
+          <circle cx="-10" cy="-3" r="5" fill="#cbd5e1"/><circle cx="10" cy="-3" r="5" fill="#cbd5e1"/>
+          <g class="waves">
+            <path d="M -18 8 Q 0 20 18 8"/><path d="M -18 8 Q 0 20 18 8"/><path d="M -18 8 Q 0 20 18 8"/>
+          </g>
+        </g>
+        <!-- distance arrow between wall and car -->
+        <line id="gap" x1="160" x2="160" y1="34" stroke="#fff" stroke-width="1.5" stroke-dasharray="3 3"/>
+        <!-- car seen from above, rear towards the wall -->
+        <g id="car" transform="translate(100 300)">
+          <rect x="0" y="0" width="120" height="210" rx="22" fill="#2563eb"/>
+          <rect x="12" y="14" width="96" height="34" rx="8" fill="#0f172a" opacity=".85"/>
+          <rect x="16" y="58" width="88" height="80" rx="10" fill="#1d4ed8"/>
+          <rect x="12" y="146" width="96" height="40" rx="8" fill="#0f172a" opacity=".85"/>
+          <rect id="tail-l" x="6" y="2" width="26" height="8" rx="3" fill="#7f1d1d"/>
+          <rect id="tail-r" x="88" y="2" width="26" height="8" rx="3" fill="#7f1d1d"/>
+        </g>
+      </svg>
+      <div class="overlay" id="overlay">Waiting for the Raspberry Pi …</div>
+    </section>
+
+    <div class="side">
+      <section class="card">
+        <p class="distance"><span id="distance">–</span> <small>cm</small></p>
+        <span class="pill" id="level">no data</span>
+        <div class="status">
+          <span><span class="dot" id="dot-pi"></span>Raspberry Pi</span>
+          <span><span class="dot" id="dot-broker"></span>MQTT broker</span>
+          <span id="buzzer-state">Buzzer: –</span>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Settings</h2>
+        <form id="form">
+          <label>Red below (cm)<input type="number" id="red" min="2" max="400" step="1" required></label>
+          <label>Yellow below (cm)<input type="number" id="yellow" min="3" max="400" step="1" required></label>
+          <label class="check"><input type="checkbox" id="buzzer"> Buzzer on</label>
+          <button type="submit">Save</button>
+          <p id="msg"></p>
+        </form>
+      </section>
+
+      <section class="card info">
+        <p>MQTT broker: <code>{{ broker }}</code></p>
+        <p>Topics: <code>{{ topic }}/#</code></p>
+        <p>REST API: <code>GET /api/status</code>, <code>PUT /api/settings</code></p>
+      </section>
+    </div>
+  </main>
+
+<script>
+const TOP = 28, CAR_LIMIT = 300;               // wall edge, lowest car position in px
+const COLORS = { green: "var(--green)", yellow: "var(--yellow)", red: "var(--red)" };
+const $ = id => document.getElementById(id);
+let formFilled = false;
+
+function scaleFor(s) {
+  const maxCm = Math.max(60, s.yellow_below_cm * 1.6);
+  return { maxCm, px: (CAR_LIMIT - TOP) / maxCm };
+}
+
+function drawZones(s) {
+  const { px } = scaleFor(s);
+  const yRed = TOP + s.red_below_cm * px, yYellow = TOP + s.yellow_below_cm * px;
+  $("zone-red").setAttribute("height", yRed - TOP);
+  $("zone-yellow").setAttribute("y", yRed);
+  $("zone-yellow").setAttribute("height", yYellow - yRed);
+  for (const [name, y, cm] of [["red", yRed, s.red_below_cm], ["yellow", yYellow, s.yellow_below_cm]]) {
+    $("mark-" + name).setAttribute("y1", y); $("mark-" + name).setAttribute("y2", y);
+    $("label-" + name).setAttribute("y", y - 4); $("label-" + name).textContent = cm + " cm";
+  }
+}
+
+function render(data) {
+  const s = data.settings;
+  drawZones(s);
+  $("dot-pi").classList.toggle("on", data.device_online);
+  $("dot-broker").classList.toggle("on", data.broker_connected);
+  $("overlay").classList.toggle("show", !data.device_online);
+  $("overlay").textContent = data.broker_connected
+    ? "Waiting for the Raspberry Pi …" : "Dashboard is not connected to the MQTT broker";
+  $("buzzer-state").textContent = "Buzzer: " + (s.buzzer ? "on" : "off");
+
+  const d = data.distance_cm, level = data.level;
+  $("distance").textContent = d == null ? "–" : d.toFixed(1);
+  $("level").textContent = level || (data.device_online ? "no reading" : "offline");
+  $("level").style.background = COLORS[level] || "var(--off)";
+
+  const { maxCm, px } = scaleFor(s);
+  const car = $("car");
+  if (d != null) {
+    const y = TOP + Math.min(d, maxCm) * px;
+    car.setAttribute("transform", `translate(100 ${y})`);
+    $("gap").setAttribute("y2", y - 4);
+  }
+  car.style.opacity = d == null ? 0.35 : 1;
+  const brake = level === "red" ? "#ff3b3b" : "#7f1d1d";
+  $("tail-l").setAttribute("fill", brake); $("tail-r").setAttribute("fill", brake);
+
+  // sound waves at the sensor follow the beep rhythm
+  const beeping = s.buzzer && (level === "yellow" || level === "red");
+  $("scene").classList.toggle("beeping", beeping);
+  if (beeping) {
+    const span = s.yellow_below_cm - s.red_below_cm;
+    const f = level === "red" ? 0 : Math.min(Math.max((d - s.red_below_cm) / span, 0), 1);
+    $("scene").style.setProperty("--wave", (0.3 + f * 1.2).toFixed(2) + "s");
+  }
+
+  if (!formFilled) {
+    $("red").value = s.red_below_cm; $("yellow").value = s.yellow_below_cm; $("buzzer").checked = s.buzzer;
+    formFilled = true;
+  }
+}
+
+async function poll() {
+  try {
+    const response = await fetch("/api/status");
+    render(await response.json());
+  } catch (error) {
+    $("overlay").classList.add("show");
+    $("overlay").textContent = "Dashboard server is not reachable";
+  }
+  setTimeout(poll, {{ poll_ms }});
+}
+
+$("form").addEventListener("submit", async event => {
+  event.preventDefault();
+  const body = { red_below_cm: Number($("red").value), yellow_below_cm: Number($("yellow").value),
+                 buzzer: $("buzzer").checked };
+  const msg = $("msg");
+  try {
+    const response = await fetch("/api/settings", { method: "PUT",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const result = await response.json();
+    msg.className = response.ok ? "" : "error";
+    msg.textContent = response.ok
+      ? (result.device_online ? "Sent to the Pi." : "Saved. The Pi gets it when it comes online.")
+      : result.error;
+  } catch (error) {
+    msg.className = "error"; msg.textContent = "Dashboard server is not reachable";
+  }
+});
+
+poll();
+</script>
+</body>
+</html>

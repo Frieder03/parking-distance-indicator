@@ -5,6 +5,16 @@ urgent the LED: green, yellow, red. All LEDs are off when there is no valid read
 The buzzer is silent in the green zone, beeps faster and faster in the yellow
 zone and sounds continuously in the red zone.
 
+Every measurement is sent over **MQTT**. A **Flask** web dashboard receives it and
+shows a car reversing into a parking bay. The browser talks to the dashboard over
+a **REST API**, and new settings travel back to the Pi over MQTT.
+
+```
+Pi (main.py) --MQTT--> broker --MQTT--> dashboard.py (Flask) --HTTP/REST--> browser
+     ^                                        |
+     +------------- MQTT settings <-----------+
+```
+
 ## Wiring
 
 | Part       | GPIO (BCM) | Physical pin |
@@ -44,22 +54,66 @@ python3 main.py           # step 4: everything together
 If `RPi.GPIO` is missing: `sudo apt install python3-rpi.gpio`.
 On a Raspberry Pi 5 use `sudo apt install python3-rpi-lgpio` instead.
 
+## Communication and web dashboard
+
+Install once on the Pi (paho-mqtt 2.x is needed, `apt` only has 1.6):
+
+```bash
+python3 -m venv --system-site-packages .venv   # keeps access to RPi.GPIO
+source .venv/bin/activate
+pip install "paho-mqtt>=2" flask
+```
+
+Two terminals on the Pi, both with `source .venv/bin/activate`:
+
+```bash
+python3 main.py           # terminal 1: sensor, LEDs, buzzer, sends over MQTT
+python3 dashboard.py      # terminal 2: web dashboard
+```
+
+Open `http://<ip-of-the-pi>:5001` on a laptop or phone in the same network
+(`hostname -I` shows the IP). The dashboard can also run on a laptop instead of
+the Pi, as long as both reach the same broker.
+
+Watch the raw MQTT messages: `mosquitto_sub -h test.mosquitto.org -t "etsidi/iot/friederbunne/parking/#" -v`
+
+| Topic                | Direction       | Content                                     |
+|----------------------|-----------------|---------------------------------------------|
+| `.../parking/status`   | Pi -> dashboard | distance, level and settings (JSON)       |
+| `.../parking/settings` | dashboard -> Pi | thresholds and buzzer (JSON, retained)    |
+| `.../parking/online`   | Pi -> dashboard | `1` while running, `0` as last will       |
+
+REST API of the dashboard:
+
+```bash
+curl http://<ip>:5001/api/status
+curl -X PUT -H "Content-Type: application/json" -d '{"red_below_cm": 12}' http://<ip>:5001/api/settings
+```
+
+If the university network blocks `test.mosquitto.org`, run your own broker on the Pi
+(`sudo apt install mosquitto`) and start both programs with `MQTT_BROKER=localhost`.
+
 ## Run without a Raspberry Pi
 
 ```bash
-python3 main.py --simulate
+python3 main.py --simulate   # simulated sensor, still sends over MQTT
+python3 main.py --offline    # without MQTT
 ```
 
 ## Files
 
 | File              | Task                                           |
 |-------------------|------------------------------------------------|
-| `config.py`       | Pins, thresholds, timing                       |
+| `config.py`       | Pins, thresholds, timing, MQTT settings        |
 | `hardware.py`     | Pin setup and cleanup, real or simulated GPIO  |
 | `sensor.py`       | Distance measurement                           |
 | `leds.py`         | Warning levels and LEDs                        |
 | `buzzer.py`       | Beep rhythm for the buzzer (background thread) |
 | `main.py`         | Main program                                   |
+| `mqtt_link.py`    | MQTT on the Pi: sends status, gets settings    |
+| `settings.py`     | Checks and applies remote settings             |
+| `dashboard.py`    | Flask web dashboard and REST API               |
+| `templates/dashboard.html` | Web page with the live parking view   |
 | `check_all_leds.py` | All LEDs on until Ctrl+C                     |
 | `check_leds.py`   | LED wiring check                               |
 | `check_sensor.py` | Sensor check                                   |
