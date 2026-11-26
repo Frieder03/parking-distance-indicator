@@ -14,8 +14,8 @@ zone and sounds continuously in the red zone.
 | Red LED    | 22         | 15           |
 | TRIG       | 23         | 16           |
 | ECHO       | 24         | 18           |
-| Buzzer +   | 18         | 12           |
-| Buzzer -   | GND        | 14           |
+| Buzzer +   | 19         | 35           |
+| Buzzer -   | GND        | 39           |
 | Sensor VCC | 5 V        | 2            |
 | GND        | GND        | 6            |
 
@@ -24,7 +24,7 @@ zone and sounds continuously in the red zone.
   Use a voltage divider: ECHO - 1 kohm - GPIO24 - 2 kohm - GND.
 - Buzzer: set `BUZZER_TYPE` in `config.py` to `"active"` (beeps by itself when
   it gets voltage) or `"passive"` (needs a tone). For a 3-pin buzzer module, connect
-  VCC to 3V3, GND to GND and I/O to GPIO18. If it beeps when it should be silent,
+  VCC to 3V3, GND to GND and I/O to GPIO19. If it beeps when it should be silent,
   set `BUZZER_ACTIVE_LOW = True`.
 - Switch off the Pi before you change the wiring.
 

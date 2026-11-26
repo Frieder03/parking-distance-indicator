@@ -6,7 +6,7 @@ PIN_LED_YELLOW = 27
 PIN_LED_RED = 22
 PIN_TRIG = 23
 PIN_ECHO = 24
-PIN_BUZZER = 18
+PIN_BUZZER = 19
 
 # Buzzer
 BUZZER_TYPE = "active"      # "active": beeps on its own; "passive": needs a tone (PWM)
